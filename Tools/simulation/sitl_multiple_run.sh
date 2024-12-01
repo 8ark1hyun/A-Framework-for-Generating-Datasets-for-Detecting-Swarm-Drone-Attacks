@@ -21,15 +21,20 @@ sleep 1
 
 export PX4_SIM_MODEL=gazebo-classic_iris
 
-n=0
-while [ $n -lt $sitl_num ]; do
-	working_dir="$build_path/instance_$n"
-	[ ! -d "$working_dir" ] && mkdir -p "$working_dir"
+# instance_0
+working_dir="$build_path/instance_0"
+[ ! -d "$working_dir" ] && mkdir -p "$working_dir"
 
-	pushd "$working_dir" &>/dev/null
-	echo "starting instance $n in $(pwd)"
-	$build_path/bin/px4 -i $n -d "$build_path/etc" >out.log 2>err.log &
-	popd &>/dev/null
+pushd "$working_dir" &>/dev/null
+echo "starting instance 0 in $(pwd)"
+$build_path/bin/px4 -i 0 -d "$build_path/etc" >out.log 2>err.log &
+popd &>/dev/null
 
-	n=$(($n + 1))
-done
+# instance_1
+working_dir="$build_path/instance_1"
+[ ! -d "$working_dir" ] && mkdir -p "$working_dir"
+
+pushd "$working_dir" &>/dev/null
+echo "starting instance 1 in $(pwd)"
+PX4_UXRCE_DDS_PORT=8889 $build_path/bin/px4 -i 1 -d "$build_path/etc" >out.log 2>err.log &
+popd &>/dev/null

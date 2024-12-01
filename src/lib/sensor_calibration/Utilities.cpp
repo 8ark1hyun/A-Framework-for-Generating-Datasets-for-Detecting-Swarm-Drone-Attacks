@@ -83,7 +83,6 @@ int8_t FindCurrentCalibrationIndex(const char *sensor_type, uint32_t device_id)
 			return i;
 		}
 	}
-
 	return -1;
 }
 

@@ -208,7 +208,7 @@ public:
 	bool canArm(uint8_t nav_state) const
 	{
 		return _results[_current_result].arming_checks.valid &&
-		       (uint32_t)(_results[_current_result].arming_checks.can_arm & getModeGroup(nav_state)) != 0;
+		      (uint32_t)(_results[_current_result].arming_checks.can_arm & getModeGroup(nav_state)) != 0;
 	}
 
 	/**
