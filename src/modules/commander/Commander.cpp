@@ -559,7 +559,7 @@ transition_result_t Commander::arm(arm_disarm_reason_t calling_reason, bool run_
 		run_preflight_checks = false;
 	}
 
-	run_preflight_checks = false; // ADD
+	run_preflight_checks = false;
 
 	if (run_preflight_checks) {
 		if (_vehicle_control_mode.flag_control_manual_enabled) {
