@@ -222,7 +222,7 @@ PARAM_DEFINE_FLOAT(COM_DISARM_LAND, 2.0f);
  * @decimal 1
  * @increment 0.1
  */
-PARAM_DEFINE_FLOAT(COM_DISARM_PRFLT, 10.0f);
+PARAM_DEFINE_FLOAT(COM_DISARM_PRFLT, -1);
 
 /**
  * GPS preflight check
@@ -234,7 +234,7 @@ PARAM_DEFINE_FLOAT(COM_DISARM_PRFLT, 10.0f);
  * @value 1 Warning only
  * @value 2 Disabled
  */
-PARAM_DEFINE_INT32(COM_ARM_WO_GPS, 1);
+PARAM_DEFINE_INT32(COM_ARM_WO_GPS, 2);
 
 /**
  * Arm switch is a momentary button
@@ -409,7 +409,7 @@ PARAM_DEFINE_INT32(COM_ARM_MAG_ANG, 60);
  *
  * @group Commander
  */
-PARAM_DEFINE_INT32(COM_ARM_MAG_STR, 2);
+PARAM_DEFINE_INT32(COM_ARM_MAG_STR, 0);
 
 /**
  * Enable RC stick override of auto and/or offboard modes
