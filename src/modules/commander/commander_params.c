@@ -206,7 +206,7 @@ PARAM_DEFINE_INT32(COM_RC_ARM_HYST, 1000);
  * @increment 0.1
  */
 
-PARAM_DEFINE_FLOAT(COM_DISARM_LAND, 2.0f);
+PARAM_DEFINE_FLOAT(COM_DISARM_LAND, -1);
 
 /**
  * Time-out for auto disarm if not taking off
@@ -290,7 +290,7 @@ PARAM_DEFINE_INT32(COM_LOW_BAT_ACT, 0);
  * @max 25.0
  * @decimal 1
  */
-PARAM_DEFINE_FLOAT(COM_FAIL_ACT_T, 5.f);
+PARAM_DEFINE_FLOAT(COM_FAIL_ACT_T, 0);
 
 /**
  * Imbalanced propeller failsafe mode

@@ -9,28 +9,6 @@ def drone_connect(udp_port):
     print(f"Drone on port {udp_port} connected!")
 
     return drone
-
-def drone_reboot(drone, target_system):
-    print(f"[System ID: {target_system}] Rebooting Drone...")
-    drone.mav.command_long_send(
-        target_system,
-        0,
-        mavutil.mavlink.MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN,
-        0,
-        1, 0, 0, 0, 0, 0, 0
-    )
-    print(f"[System ID: {target_system}] Rebooting Completed!")
-
-def drone_set_mode(drone, target_system):
-    PX4_CUSTOM_MAIN_MODE_OFFBOARD = 6
-    drone.mav.command_long_send(
-        target_system,
-        0,
-        mavutil.mavlink.MAV_CMD_DO_SET_MODE,
-        0,
-        1, PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0, 0, 0, 0, 0
-    )
-    print(f"[System ID: {target_system}] Setting Completed!")
         
 def drone_arm(drone, target_system):
     print(f"[System ID: {target_system}] Arming drone...")
@@ -43,21 +21,50 @@ def drone_arm(drone, target_system):
     )
     drone.motors_armed_wait()
     print(f"[System ID: {target_system}] Drone Armed!")
+
+    time.sleep(5)
     
+def drone_disarm(drone, target_system):
+    print(f"[System ID: {target_system}] Disarming drone...")
+    drone.mav.command_long_send(
+        target_system,
+        0,
+        mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM,
+        0,
+        0, 0, 0, 0, 0, 0, 0
+    )
+    drone.motors_armed_wait()
+    print(f"[System ID: {target_system}] Drone Disarmed!")
+
     time.sleep(5)
 
-def drone_takeoff(drone, target_system, target_altitude):
-    print(f"[System ID: {target_system}] Taking off to altitude {abs(target_altitude)} meters...")
+def drone_position(drone):
+    msg = drone.recv_match(type='GLOBAL_POSITION_INT', blocking=True)
+    if msg:
+        latitude = msg.lat / 1e7
+        longitude = msg.lon / 1e7
+        altitude = msg.relative_alt / 1000.0
+        return latitude, longitude, altitude
+    return None, None, None
+
+def drone_takeoff(drone, target_system):
+    print(f"[System ID: {target_system}] Taking off...")
     drone.mav.command_long_send(
         target_system,
         0,
         mavutil.mavlink.MAV_CMD_NAV_TAKEOFF,
         0,
-        0, 0, 0, 0, 0, 0, target_altitude
+        0, 0, 0, 0, 36.010550, 129.321334, 30
     )
     print(f"[System ID: {target_system}] Takeoff!")
 
-    time.sleep(5)
+    current_position = drone_position(drone)
+    while True:
+        current_position = drone_position(drone)
+        if abs(current_position[2] - 30) > 1:
+            continue
+        else:
+            return
 
 def drone_land(drone, target_system):
     print(f"[System ID: {target_system}] Landing...")
@@ -66,9 +73,17 @@ def drone_land(drone, target_system):
         0,
         mavutil.mavlink.MAV_CMD_NAV_LAND,
         0,
-        0, 0, 0, 0, 0, 0, 0
+        0, 0, 0, 0, 36.010550, 129.321334, 0
     )
     print(f"[System ID: {target_system}] Land!")
+
+    current_position = drone_position(drone)
+    while True:
+        current_position = drone_position(drone)
+        if abs(current_position[2] - 0) > 1:
+            continue
+        else:
+            return
 
 def main():
     leader = drone_connect(14540)
@@ -81,18 +96,21 @@ def main():
 
     print("\n")
 
-    drone_set_mode(leader, target_system=1)
-    drone_set_mode(follower, target_system=2)
-
-    print("\n")
-
-    drone_takeoff(leader, target_system=1, target_altitude=50)
-    drone_takeoff(follower, target_system=2, target_altitude=50)
+    drone_takeoff(leader, target_system=1)
+    drone_takeoff(follower, target_system=2)
 
     print("\n")
 
     drone_land(leader, target_system=1)
     drone_land(follower, target_system=2)
+
+    print("\n")
+
+    drone_disarm(leader, target_system=1)
+    drone_disarm(follower, target_system=2)
+
+    leader.close()
+    follower.close()
 
 if __name__ == "__main__":
     main()
