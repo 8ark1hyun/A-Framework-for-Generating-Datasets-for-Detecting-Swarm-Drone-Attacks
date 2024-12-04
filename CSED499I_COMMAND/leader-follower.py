@@ -54,14 +54,14 @@ def drone_takeoff(drone, target_system):
         0,
         mavutil.mavlink.MAV_CMD_NAV_TAKEOFF,
         0,
-        0, 0, 0, 0, 36.010550, 129.321334, 20
+        0, 0, 0, 0, 36.010550, 129.321334, 10
     )
     print(f"[System ID: {target_system}] Takeoff!")
 
     current_position = drone_position(drone)
     while True:
         current_position = drone_position(drone)
-        if abs(current_position[2] - 20) > 1:
+        if abs(current_position[2] - 10) > 1:
             continue
         else:
             time.sleep(2)
@@ -86,20 +86,6 @@ def drone_land(drone, target_system):
         else:
             time.sleep(2)
             return
-
-def drone_set_mode(drone, mode):
-    if mode == "LOITER":
-        drone.mav.set_mode_send(
-        1,
-        mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
-        5,
-    )
-    elif mode == "GUIDED":
-        drone.mav.set_mode_send(
-        2,
-        mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
-        4,
-    )
 
 def calculate_distance_and_bearing(lat1, lon1, lat2, lon2):
     R = 6371e3
@@ -126,7 +112,7 @@ def smooth_velocity(distance, target_distance, max_speed):
     if distance <= target_distance:
         return 0
     error = distance - target_distance
-    velocity = max_speed * min(error / target_distance)
+    velocity = max_speed * min(error / target_distance, 1)
     return velocity
 
 def send_velocity(follower, vx, vy, vz):
@@ -151,9 +137,6 @@ def main():
 
     drone_takeoff(leader, target_system=1)
     drone_takeoff(follower, target_system=2)
-
-    drone_set_mode(leader, "LOITER")
-    drone_set_mode(follower, "GUIDED")
 
     desired_distance = 2
     max_speed = 10.0
