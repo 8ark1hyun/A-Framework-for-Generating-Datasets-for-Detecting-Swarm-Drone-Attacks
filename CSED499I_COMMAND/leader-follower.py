@@ -38,6 +38,17 @@ def drone_disarm(drone, target_system):
 
     time.sleep(5)
 
+def follower_set_mode(drone, target_system):
+    print("Setting Follower Drone Mode to OFFBOARD")
+    drone.mav.command_long_send(
+        target_system,
+        0,
+        mavutil.mavlink.MAV_CMD_DO_SET_MODE,
+        0,
+        1,
+        6, 0, 0, 0, 0, 0
+    )
+
 def drone_position(drone):
     msg = drone.recv_match(type='GLOBAL_POSITION_INT', blocking=True)
     if msg:
@@ -49,6 +60,11 @@ def drone_position(drone):
 
 def drone_takeoff(drone, target_system):
     print(f"[System ID: {target_system}] Taking off...")
+    current_position = drone_position(drone)
+    # lat = current_position[0]
+    # lon = current_position[1]
+    # target_alt = current_position[2] + 10
+
     drone.mav.command_long_send(
         target_system,
         0,
@@ -69,12 +85,17 @@ def drone_takeoff(drone, target_system):
 
 def drone_land(drone, target_system):
     print(f"[System ID: {target_system}] Landing...")
+    current_position = drone_position(drone)
+    lat = current_position[0]
+    lon = current_position[1]
+    target_alt = 0
+
     drone.mav.command_long_send(
         target_system,
         0,
         mavutil.mavlink.MAV_CMD_NAV_LAND,
         0,
-        0, 0, 0, 0, 36.010550, 129.321334, 0
+        0, 0, 0, 0, lat, lon, target_alt
     )
     print(f"[System ID: {target_system}] Land!")
 
@@ -108,6 +129,16 @@ def calculate_distance_and_bearing(lat1, lon1, lat2, lon2):
 
     return distance, (bearing + 360) % 360
 
+def calculate_position(leader_lat, leader_lon, leader_alt, distance):
+    R = 6371e3
+    dlat = distance / R
+    #dlon = distance / (R * math.cos(math.pi * leader_lat / 180))
+
+    target_lat = leader_lat - (dlat * 180 / math.pi)
+    target_lon = leader_lon
+    target_alt = leader_alt
+    return target_lat, target_lon, target_alt
+
 def smooth_velocity(distance, target_distance, max_speed):
     if distance <= target_distance:
         return 0
@@ -115,17 +146,17 @@ def smooth_velocity(distance, target_distance, max_speed):
     velocity = max_speed * min(error / target_distance, 1)
     return velocity
 
-def send_velocity(follower, vx, vy, vz):
-    follower.mav.set_position_target_local_ned_send(
+def send_velocity(follower, lat, lon, alt):
+    follower.mav.set_position_target_global_int_send(
         0,
         2,
         0,
-        mavutil.mavlink.MAV_FRAME_LOCAL_NED,
-        0b0000111111000111,
+        mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT_INT,
+        0b0000111111111000,
+        int(lat * 1e7), int(lon * 1e7), alt,
         0, 0, 0,
-        vx, vy, vz,
         0, 0, 0,
-        0, 0,
+        float('nan'), float('nan')
     )
 
 def main():
@@ -138,39 +169,37 @@ def main():
     drone_takeoff(leader, target_system=1)
     drone_takeoff(follower, target_system=2)
 
-    desired_distance = 2
+    follower_set_mode(follower, target_system=2)
+
+    desired_distance = 2.0
     max_speed = 10.0
 
     while True:
         leader_position = drone_position(leader)
         follower_position = drone_position(follower)
 
-        distance, bearing = calculate_distance_and_bearing(leader_position[0], leader_position[1], follower_position[0], follower_position[1])
+        # distance, bearing = calculate_distance_and_bearing(leader_position[0], leader_position[1], follower_position[0], follower_position[1])
 
-        speed = smooth_velocity(distance, desired_distance, max_speed)
-        vx = speed * math.cos(math.radians(bearing))
-        vy = speed * math.sin(math.radians(bearing))
+        # speed = smooth_velocity(distance, desired_distance, max_speed)
+        # vx = speed * math.cos(math.radians(bearing))
+        # vy = speed * math.sin(math.radians(bearing))
 
-        send_velocity(follower, vx, vy, 0)
+        target_lat, target_lon, target_alt = calculate_position(leader_position[0], leader_position[1], leader_position[2], desired_distance)
+
+        send_velocity(follower, target_lat, target_lon, target_alt)
 
         time.sleep(0.1)
 
 
-    drone_land(leader, target_system=1)
-    drone_land(follower, target_system=2)
+    # drone_land(leader, target_system=1)
+    # drone_land(follower, target_system=2)
 
-    drone_disarm(leader, target_system=1)
-    drone_disarm(follower, target_system=2)
+    # drone_disarm(leader, target_system=1)
+    # drone_disarm(follower, target_system=2)
 
-    leader.close()
-    follower.close()
+    # leader.close()
+    # follower.close()
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
 
