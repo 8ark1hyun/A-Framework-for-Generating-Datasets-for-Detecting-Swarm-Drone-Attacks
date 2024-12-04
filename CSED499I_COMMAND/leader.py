@@ -8,11 +8,18 @@ def drone_connect(udp_port):
     drone = mavutil.mavlink_connection(f'udp:localhost:{udp_port}')
 
     drone.wait_heartbeat()
-    print("Leader Drone connected!")
+    print("Leader Drone Connected!")
 
     return drone
+
+def follower_connect(udp_port):
+    print("Connecting to Follower Drone...")
+    follower = mavutil.mavlink_connection(f'udpout:localhost:{udp_port}')
+    print("Follower Drone Connected!")
+
+    return follower
         
-def drone_arm(drone):
+def drone_arm(drone, follower):
     print("Arming Leader drone...")
     drone.mav.command_long_send(
         1,
@@ -95,7 +102,7 @@ def main():
     drone_takeoff(leader)
     drone_land(leader)
     drone_disarm(leader)
-    
+
     leader.close()
 
 if __name__ == "__main__":
