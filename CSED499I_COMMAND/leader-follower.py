@@ -1,5 +1,6 @@
 import time
 import math
+import threading
 from pymavlink import mavutil
 
 def drone_connect(udp_port):
@@ -56,8 +57,11 @@ def drone_disarm(drone, target_system):
 
     time.sleep(5)
 
-def follower_set_mode(drone, target_system):
-    print("Setting Follower Drone's Mode to OFFBOARD...")
+def drone_set_mode(drone, target_system):
+    if target_system == 1:
+        print("Setting Leader Drone's Mode to OFFBOARD...")
+    elif target_system > 1:
+        print("Setting Follower Drone's Mode to OFFBOARD...")
     drone.mav.command_long_send(
         target_system,
         0,
@@ -66,7 +70,10 @@ def follower_set_mode(drone, target_system):
         1,
         6, 0, 0, 0, 0, 0
     )
-    print("Setting Follower Drone's Mode Completed!")
+    if target_system == 1:
+        print("Setting Leader Drone's Mode Completed!")
+    elif target_system > 1:
+        print("Setting Follower Drone's Mode Completed!")
 
 def drone_position(drone):
     msg = drone.recv_match(type='GLOBAL_POSITION_INT', blocking=True)
@@ -82,7 +89,6 @@ def drone_takeoff(drone, target_system):
         print("Taking off Leader Drone...")
     elif target_system > 1:
         print("Taking off Follower Drone...")
-    current_position = drone_position(drone)
 
     drone.mav.command_long_send(
         target_system,
@@ -110,14 +116,13 @@ def drone_land(drone, target_system):
         print("Landing Leader Drone...")
     elif target_system > 1:
         print("Landing Follower Drone...")
-    current_position = drone_position(drone)
 
     drone.mav.command_long_send(
         target_system,
         0,
         mavutil.mavlink.MAV_CMD_NAV_LAND,
         0,
-        0, 0, 0, 0, lat, lon, target_alt
+        0, 0, 0, 0, 36.010550, 129.321334, 0
     )
 
     current_position = drone_position(drone)
@@ -142,7 +147,20 @@ def calculate_position(leader_lat, leader_lon, leader_alt, distance):
     target_alt = leader_alt
     return target_lat, target_lon, target_alt
 
-def send_command(follower, lat, lon, alt):
+def send_leader_command(leader, waypoint):
+    leader.mav.set_position_target_global_int_send(
+        0,
+        1,
+        0,
+        mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT_INT,
+        0b0000111111111000,
+        int(waypoint[0] * 1e7), int(waypoint[1] * 1e7), waypoint[2],
+        0, 0, 0,
+        0, 0, 0,
+        float('nan'), float('nan')
+    )
+
+def send_follower_command(follower, lat, lon, alt):
     follower.mav.set_position_target_global_int_send(
         0,
         2,
@@ -155,6 +173,44 @@ def send_command(follower, lat, lon, alt):
         float('nan'), float('nan')
     )
 
+def leader_mission(leader, mission):
+    for waypoint in mission:
+        print(f"Leader Drone is moving to waypoint {waypoint}")
+        while True:
+            leader_position = drone_position(leader)
+
+            send_leader_command(leader, waypoint)
+
+            if (abs(leader_position[0] - waypoint[0]) > 0.00001 or
+                abs(leader_position[1] - waypoint[1]) > 0.00001 or
+                abs(leader_position[2] - waypoint[2]) > 1):
+                time.sleep(0.1)
+                continue
+            else:
+                time.sleep(0.1)
+                break
+
+    print("Leader Mission Completed!")
+
+    drone_land(leader, target_system=1)
+
+def follower_mission(leader, follower):
+    while True:
+        leader_position = drone_position(leader)
+
+        target_lat, target_lon, target_alt = calculate_position(leader_position[0], leader_position[1], leader_position[2], distance=2.0)
+
+        send_follower_command(follower, target_lat, target_lon, target_alt)
+
+        if abs(leader_position[2] - 0) > 1:
+            time.sleep(0.1)
+            continue
+        else:
+            time.sleep(0.1)
+            break
+
+    print("Follower Mission Completed!")
+
 def main():
     leader = drone_connect(14540)
     follower = drone_connect(14541)
@@ -165,26 +221,36 @@ def main():
     drone_takeoff(leader, target_system=1)
     drone_takeoff(follower, target_system=2)
 
-    follower_set_mode(follower, target_system=2)
+    drone_set_mode(leader, target_system=1)
+    drone_set_mode(follower, target_system=2)
 
-    while True:
-        leader_position = drone_position(leader)
+    # HOME = (36.010550, 129.321334, 0)
+    mission = [
+        (36.011550, 129.321334, 10),
+        (36.011550, 129.322334, 15),
+        (36.010550, 129.322334, 15),
+        (36.010550, 129.321334, 10)
+    ]
 
-        target_lat, target_lon, target_alt = calculate_position(leader_position[0], leader_position[1], leader_position[2], distance=2.0)
+    leader_thread = threading.Thread(target=leader_mission, args=(leader, mission))
+    follower_thread = threading.Thread(target=follower_mission, args=(leader, follower))
 
-        send_command(follower, target_lat, target_lon, target_alt)
+    leader_thread.start()
+    follower_thread.start()
 
-        time.sleep(0.1)
+    leader_thread.join()
+    follower_thread.join()
 
+    print("Mission Complete!")
 
-    # drone_land(leader, target_system=1)
-    # drone_land(follower, target_system=2)
+    time.sleep(5)
 
-    # drone_disarm(leader, target_system=1)
-    # drone_disarm(follower, target_system=2)
+    drone_disarm(leader, target_system=1)
+    drone_disarm(follower, target_system=2)
 
-    # leader.close()
-    # follower.close()
+    leader.close()
+    follower.close()
+    
 
 if __name__ == "__main__":
     main()
